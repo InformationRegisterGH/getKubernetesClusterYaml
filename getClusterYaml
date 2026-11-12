@@ -1,0 +1,40 @@
+# This script getClusterYaml simply retrieves a set of requested yaml files
+# in the kubernetes cluster. 
+# Planning for their careful use is needed if they are to be of benefit.
+#
+# Requires kubectl neat which in turn needs kubectl krew.
+# See https://krew.sigs.k8s.io/docs/user-guide/setup/install/
+# and https://github.com/itaysk/kubectl-neat.
+#
+# Create a new directory.
+# Place this script in the directory.
+# Execute this script in-place e.g.
+# ./getClusterYaml
+#
+# Warning: This script over writes any existing files with the same names.
+#          It does not remove files for objects not found. Thus the 
+#          recommendation to use a new directory. Sometimes its important
+#          to spot what's missing.
+echo "Starting cluster"
+mkdir -p cluster
+# Adjust the object list to suit your needs and environment
+for n in $(kubectl get -o=name gatewayclass,namespace,clusterrole,clusterrolebinding) 
+do
+    subdirname=$(tr "/" "\n" <<< $n | head -n1)
+    shortname=$(tr "/" "\n" <<< $n | tail -n1)
+    mkdir -p cluster/$subdirname
+    kubectl get $n -o yaml | kubectl neat > cluster/$subdirname/$shortname.yaml
+done
+echo "Starting namespaces"
+for ns in $(kubectl get -o name namespace)
+do
+  wns=$(tr "/" "\n" <<< $ns | tail -n1)
+#  kubectl get namespace $wns -o yaml | kubectl neat > cluster/namespaces/$wns.yaml
+  echo "Processing namespace " $wns" objects"
+# Adjust the list of objects to meet your needs
+  for n in $(kubectl -n $wns get -o=name configmap,cronjob,deployment,hpa,job,pv,pvc,role,rolebinding,serviceaccount,secret,service,statefulset)
+  do
+      mkdir -p $(dirname $wns/$n)
+      kubectl -n $wns get $n -o yaml | kubectl neat > $wns/$n.yaml
+  done
+done

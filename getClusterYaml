@@ -21,28 +21,42 @@
 echo "Starting cluster"
 mkdir -p cluster
 chmod 700 cluster
-# Adjust the object list to suit your needs and environment
-for n in $(kubectl get -o=name gatewayclass,namespace,clusterrole,clusterrolebinding) 
+# Adjust the cluster resource list to suit your needs and environment
+clusterResources="gatewayclass,clusterrole,clusterrolebinding,namespaces"
+for clusterResource in $(tr "," "\n" <<< $clusterResources)
 do
-    subdirname=$(tr "/" "\n" <<< $n | head -n1)
-    shortname=$(tr "/" "\n" <<< $n | tail -n1)
-    mkdir -p cluster/$subdirname
-    chmod 700 cluster/$subdirname
-    kubectl get $n -o yaml | kubectl neat > cluster/$subdirname/$shortname.yaml
-    chmod 600 cluster/$subdirname/$shortname.yaml
+    echo "Processing cluster resources of $clusterResource type."
+    for n in $(kubectl get -o=name $clusterResource) 
+    do
+        subdirname=$(tr "/" "\n" <<< $n | head -n1)
+        shortname=$(tr "/" "\n" <<< $n | tail -n1)
+        mkdir -p cluster/$subdirname
+        chmod 700 cluster/$subdirname
+        kubectl get $n -o yaml | kubectl neat > cluster/$subdirname/$shortname.yaml
+        chmod 600 cluster/$subdirname/$shortname.yaml
+    done
 done
+echo "---"
 echo "Starting namespaces"
+echo
 for ns in $(kubectl get -o name namespace)
 do
-  wns=$(tr "/" "\n" <<< $ns | tail -n1)
-  echo "Processing namespace " $wns" objects"
-# Adjust the list of objects to meet your needs
-  for n in $(kubectl -n $wns get -o=name configmap,cronjob,deployment,hpa,job,pv,pvc,role,rolebinding,serviceaccount,secret,service,statefulset)
-  do
-      mkdir -p $(dirname $wns/$n)
-      chmod 700 $wns
-      chmod 700 $(dirname $wns/$n)
-      kubectl -n $wns get $n -o yaml | kubectl neat > $wns/$n.yaml
-      chmod 600 $wns/$n.yaml
-  done
+    wns=$(tr "/" "\n" <<< $ns | tail -n1)
+    echo "Processing $wns namespace."
+# Adjust the list of namespace resources to meet your needs
+    namespaceResources="configmap,cronjob,deployment,hpa,job,pv,pvc,role,rolebinding,secret,service,serviceaccount,statefulset"
+    for namespaceResource in $(tr "," "\n" <<< $namespaceResources)
+    do
+        echo "Processing $wns resources of $namespaceResource type."
+        for n in $(kubectl -n $wns get -o=name $namespaceResource)
+        do
+            mkdir -p $(dirname $wns/$n)
+            chmod 700 $wns
+            chmod 700 $(dirname $wns/$n)
+            kubectl -n $wns get $n -o yaml | kubectl neat > $wns/$n.yaml
+            chmod 600 $wns/$n.yaml
+        done
+    done
+    echo "---"
 done
+echo "All requested yaml files generated."
